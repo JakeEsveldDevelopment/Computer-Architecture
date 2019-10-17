@@ -4,12 +4,14 @@ import sys
 
 class CPU:
     """Main CPU class."""
+    
 
     def __init__(self):
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.registers = [0] * 8
         self.registers[7] = 0xF4
+        self.sp = 7
         pass
 
     def load(self, path):
@@ -25,8 +27,7 @@ class CPU:
                     comment_split = line.split("#")
                     num = comment_split[0].strip()
                     if num != "":
-                        program.append(int(num, 2))
-                        
+                        program.append(int(num, 2))                     
 
         except FileNotFoundError:
             print(f"{path} not found")
@@ -93,6 +94,12 @@ class CPU:
                 self.registers[reg] = num
                 pc += 3
 
+            elif command == 0b10100000:
+                reg_a = self.registers[self.ram_read(pc + 1)]
+                reg_b = self.registers[self.ram_read(pc + 2)]
+                self.registers[self.ram_read(pc + 1)] = reg_a + reg_b
+                pc += 3
+
             elif command == 0b01000111:
                 reg = self.ram_read(pc + 1)
                 num = self.registers[reg]
@@ -105,9 +112,35 @@ class CPU:
                 self.registers[self.ram_read(pc + 1)] = reg_a * reg_b
                 pc += 3
 
+            elif command == 0b01000101:
+                reg = self.ram_read(pc + 1)
+                val = self.registers[reg]
+                self.registers[self.sp] -= 1
+                self.ram_write(self.registers[self.sp], val)
+                pc += 2
+
+            elif command == 0b01000110:
+                reg = self.ram_read(pc + 1)
+                val = self.ram_read(self.registers[self.sp])
+                self.registers[reg] = val
+                self.registers[self.sp] += 1
+                pc += 2        
+
+            elif command == 0b01010000:
+                self.registers[self.sp] -= 1
+                self.ram_write(self.registers[self.sp], pc + 2) 
+                reg = self.ram_read(pc + 1)
+                pc = self.registers[reg]
+
+            elif command == 0b00010001:
+                pc = self.ram_read(self.registers[self.sp])
+                self.registers[self.sp] += 1        
+
             else:
-                print(f"Unkown command {command}")
+                print(f"Unkown command {command:08b}")
                 pc += 1
                 print(pc)
+
+            
         
 
