@@ -4,27 +4,38 @@ import sys
 
 class CPU:
     """Main CPU class."""
+    
 
     def __init__(self):
         """Construct a new CPU."""
+        self.ram = [0] * 256
+        self.registers = [0] * 8
+        self.registers[7] = 0xF4
+        self.sp = 7
+        self.equal = False
+        self.less = False
+        self.greater = False
         pass
 
-    def load(self):
+    def load(self, path):
         """Load a program into memory."""
 
         address = 0
 
         # For now, we've just hardcoded a program:
+        program = []
+        try:
+            with open(path) as f:
+                for line in f:
+                    comment_split = line.split("#")
+                    num = comment_split[0].strip()
+                    if num != "":
+                        program.append(int(num, 2))                     
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+        except FileNotFoundError:
+            print(f"{path} not found")
+            sys.exit(2)
+
 
         for instruction in program:
             self.ram[address] = instruction
@@ -39,6 +50,12 @@ class CPU:
         #elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
+
+    def ram_read(self, position):
+        return self.ram[position]
+
+    def ram_write(self, position, value):
+        self.ram[position] = value
 
     def trace(self):
         """
@@ -62,4 +79,106 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        pc = 0
+        running = True
+
+        while running:
+            command = self.ram_read(pc)
+
+            if command == 0b00000001:
+                running = False
+                pc += 1
+                print("Halted")
+                sys.exit(1)
+            
+            elif command == 0b10000010:
+                reg = self.ram_read(pc + 1)
+                num = self.ram_read(pc + 2)
+                self.registers[reg] = num
+                pc += 3
+
+            elif command == 0b10100000:
+                reg_a = self.registers[self.ram_read(pc + 1)]
+                reg_b = self.registers[self.ram_read(pc + 2)]
+                self.registers[self.ram_read(pc + 1)] = reg_a + reg_b
+                pc += 3
+
+            elif command == 0b01000111:
+                reg = self.ram_read(pc + 1)
+                num = self.registers[reg]
+                print(num)
+                pc += 2
+
+            elif command == 0b10100010:
+                reg_a = self.registers[self.ram_read(pc + 1)]
+                reg_b = self.registers[self.ram_read(pc + 2)]
+                self.registers[self.ram_read(pc + 1)] = reg_a * reg_b
+                pc += 3
+
+            elif command == 0b01000101:
+                reg = self.ram_read(pc + 1)
+                val = self.registers[reg]
+                self.registers[self.sp] -= 1
+                self.ram_write(self.registers[self.sp], val)
+                pc += 2
+
+            elif command == 0b01000110:
+                reg = self.ram_read(pc + 1)
+                val = self.ram_read(self.registers[self.sp])
+                self.registers[reg] = val
+                self.registers[self.sp] += 1
+                pc += 2        
+
+            elif command == 0b01010000:
+                self.registers[self.sp] -= 1
+                self.ram_write(self.registers[self.sp], pc + 2) 
+                reg = self.ram_read(pc + 1)
+                pc = self.registers[reg]
+
+            elif command == 0b00010001:
+                pc = self.ram_read(self.registers[self.sp])
+                self.registers[self.sp] += 1     
+
+            elif command == 0b10100111:
+                reg_a = self.ram_read(pc + 1)
+                reg_b = self.ram_read(pc + 2)
+                if self.registers[reg_a] == self.registers[reg_b]:
+                    self.equal = True
+                    self.greater = False
+                    self.less = False
+                elif self.registers[reg_a] > self.registers[reg_b]:
+                    self.greater = True
+                    self.equal = False
+                    self.less = False
+                elif self.registers[reg_a] < self.registers[reg_b]:
+                    self.less = True
+                    self.greater = False
+                    self.equal = False
+                pc += 3
+
+            elif command == 0b01010100:
+                reg = self.ram_read(pc + 1)
+                pc = self.registers[reg]
+            
+            elif command == 0b01010110:
+                if not self.equal:
+                    reg = self.ram_read(pc + 1)
+                    pc = self.registers[reg]
+                else:
+                    pc += 2
+
+            elif command == 0b01010101:
+                if self.equal:
+                    reg = self.ram_read(pc + 1)
+                    pc = self.registers[reg]
+                else:
+                    pc += 2
+
+            else:
+                print(f"Unkown command {command:08b}")
+                pc += 1
+                print(pc)
+
+            
+        
+
