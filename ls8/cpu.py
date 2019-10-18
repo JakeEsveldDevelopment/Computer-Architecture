@@ -12,6 +12,9 @@ class CPU:
         self.registers = [0] * 8
         self.registers[7] = 0xF4
         self.sp = 7
+        self.equal = False
+        self.less = False
+        self.greater = False
         pass
 
     def load(self, path):
@@ -134,7 +137,42 @@ class CPU:
 
             elif command == 0b00010001:
                 pc = self.ram_read(self.registers[self.sp])
-                self.registers[self.sp] += 1        
+                self.registers[self.sp] += 1     
+
+            elif command == 0b10100111:
+                reg_a = self.ram_read(pc + 1)
+                reg_b = self.ram_read(pc + 2)
+                if self.registers[reg_a] == self.registers[reg_b]:
+                    self.equal = True
+                    self.greater = False
+                    self.less = False
+                elif self.registers[reg_a] > self.registers[reg_b]:
+                    self.greater = True
+                    self.equal = False
+                    self.less = False
+                elif self.registers[reg_a] < self.registers[reg_b]:
+                    self.less = True
+                    self.greater = False
+                    self.equal = False
+                pc += 3
+
+            elif command == 0b01010100:
+                reg = self.ram_read(pc + 1)
+                pc = self.registers[reg]
+            
+            elif command == 0b01010110:
+                if not self.equal:
+                    reg = self.ram_read(pc + 1)
+                    pc = self.registers[reg]
+                else:
+                    pc += 2
+
+            elif command == 0b01010101:
+                if self.equal:
+                    reg = self.ram_read(pc + 1)
+                    pc = self.registers[reg]
+                else:
+                    pc += 2
 
             else:
                 print(f"Unkown command {command:08b}")
